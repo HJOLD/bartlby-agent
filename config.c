@@ -16,8 +16,8 @@ $Source$
 
 
 $Log$
-Revision 1.1  2006/07/22 23:27:48  hjanuschka
-Initial revision
+Revision 1.1.1.1  2006/07/22 23:27:48  hjanuschka
+initial stand alone agent
 
 Revision 1.9  2006/06/05 21:06:06  hjanuschka
 *** empty log message ***
