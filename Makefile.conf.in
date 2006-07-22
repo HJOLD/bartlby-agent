@@ -1,0 +1,9 @@
+CC = @CC@
+CPPVA = @INSTALL_PATH@ @INSTALL_OPTIONS@
+RMVFR = rm -vfr
+MKDIRP = @INSTALL_PATH@ @INSTALL_OPTIONS@ -d
+EXTRAOPTIONS = -g -Wall
+INCLUDE_L = -I../include/
+INCLUDE_LL = -I../../include/
+CHMOD = chmod
+BARTLBY_HOME = @prefix@
