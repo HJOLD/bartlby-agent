@@ -1,3 +1,4 @@
 agent_plugin_dir=@PLUGIN_DIR@
 allowed_ips=@ALLOWEDIPS@
 agent_load_limit=@LOADLIMIT@
+
