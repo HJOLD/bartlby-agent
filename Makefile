@@ -8,6 +8,7 @@ agent: ${AGENT}
 
 install:
 	$(MKDIRP) $(BARTLBY_HOME);
+	$(MKDIRP) $(PLUGIN_DIR);
 	$(CPPVA) bartlby_agent $(BARTLBY_HOME)/
 	$(CPPVA) bartlby.cfg $(BARTLBY_HOME)/
 	
