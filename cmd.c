@@ -16,6 +16,9 @@ $Source$
 
 
 $Log$
+Revision 1.2  2006/08/08 00:10:30  hjanuschka
+auto commit
+
 Revision 1.1  2006/08/07 18:52:05  hjanuschka
 auto commit
 
@@ -219,6 +222,60 @@ void cmd_get_passive() {
 	}	
 }
 
+void cmd_get_server_id() {
+	int res;
+	char verstr[2048];
+	char cmdstr[2048];
+	char result[2048];
+	char myhostname[255];
+	
+	int rc;
+	
+	if(gethostname(myhostname, 255) != 0) {
+		printf("gethostname() failed\n");
+		exit(1);	
+	}
+	fprintf(stderr, "trying to get server id for: %s \n", myhostname);
+	res=connect_to(passive_host, passive_port);
+	if(res > 0) {
+		
+		connection_timed_out=0;
+		alarm(5);
+		if(read(res, verstr, 1024) < 0) {
+			printf("BAD!\n");
+			exit(1);
+		}
+		if(verstr[0] != '+') {
+			printf("Server said a bad result: '%s'\n", verstr);
+			close(res);
+			exit(1);
+		}
+		alarm(0);
+		//printf("Connected to: %s\n", verstr);		
+		sprintf(cmdstr, "5|%s|\n", myhostname);
+		
+		connection_timed_out=0;
+		alarm(5);
+		if(write(res, cmdstr, 1024) < 0) {
+			printf("BAD2!\n");
+			exit(1);
+		}
+		alarm(0);
+		connection_timed_out=0;
+		alarm(5);
+		while((rc=read(res, result, 1024)) > 0) {
+			result[rc-1]='\0';
+			printf("%s", result);
+		}
+		
+			
+	} else {
+		
+		printf("Connect failed\n");
+		exit(2);	
+	}	
+}
+
 void cmd_get_services() {
 	int res;
 	char verstr[2048];
@@ -330,7 +387,7 @@ void help() {
 	printf("-m             new service text\n");
 	printf("-e             new service state (0,1,2)\n");
 	printf("-a             action\n");
-	printf("               maybe: get_passive, set_passive, get_services\n");
+	printf("               maybe: get_passive, set_passive, get_services, get_server_id\n");
 	exit(1);	
 }
 void parse_options(int argc, char ** argv) {
@@ -407,7 +464,9 @@ int main(int argc, char ** argv) {
 	} else if (strcmp(passive_action, "set_passive") == 0) {
 		cmd_set_passive();
 	} else if(strcmp(passive_action, "get_services") == 0) {
-		cmd_get_services();	
+		cmd_get_services();
+	} else if(strcmp(passive_action, "get_server_id") == 0) {
+		cmd_get_server_id();				
 	} else {
 		printf("Hmm action is pretty unusefull\n");
 	}
