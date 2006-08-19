@@ -16,8 +16,11 @@ $Source$
 
 
 $Log$
-Revision 1.1  2006/07/22 23:27:49  hjanuschka
-Initial revision
+Revision 1.2  2006/08/19 00:06:47  hjanuschka
+agent: loadLimit protocoll error!!
+
+Revision 1.1.1.1  2006/07/22 23:27:49  hjanuschka
+initial stand alone agent
 
 Revision 1.22  2006/05/12 23:38:02  hjanuschka
 *** empty log message ***
@@ -339,10 +342,18 @@ int main(int argc, char ** argv) {
 		
 		        	
         } else { 
-        	sprintf(svc_back, "1|LoadLimit reached %.02f skipping Check!|\n", loadavg[0]);
+        	
         	free(agent_load_limit);
+        	
+        	sprintf(svc_back, "1|LoadLimit reached %.02f skipping Check!| \n", loadavg[0]);
+		printf("%s\n", svc_back);
+		fflush(stdout);	
+		sleep(2);
+		exit(1);
+        	
         }
         fflush(stdout);
+       
 	//printf("SVC_BACK: %s\n", svc_back);
 	//syslog(LOG_ERR, "bartlby_agent: %s",svc_back);
 	
