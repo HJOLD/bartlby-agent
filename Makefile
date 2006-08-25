@@ -19,7 +19,7 @@ install:
 	$(CPPVA) bartlby_cmd ${BARTLBY_HOME}/
 	
 	$(CPPVA) bartlby.cfg $(BARTLBY_HOME)/
-	
+	$(CPPVA) agent_sync.cfg $(BARTLBY_HOME)/
 	
 
 	

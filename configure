@@ -311,7 +311,7 @@ ac_includes_default="\
 # include <unistd.h>
 #endif"
 
-ac_subst_vars='SHELL PATH_SEPARATOR PACKAGE_NAME PACKAGE_TARNAME PACKAGE_VERSION PACKAGE_STRING PACKAGE_BUGREPORT exec_prefix prefix program_transform_name bindir sbindir libexecdir datadir sysconfdir sharedstatedir localstatedir libdir includedir oldincludedir infodir mandir build_alias host_alias target_alias DEFS ECHO_C ECHO_N ECHO_T LIBS PLUGIN_DIR ALLOWEDIPS LOADLIMIT CC CFLAGS LDFLAGS CPPFLAGS ac_ct_CC EXEEXT OBJEXT BARTLBY_USER AWK SET_MAKE INSTALL_PATH INSTALL_OPTIONS CPP EGREP LIBOBJS LTLIBOBJS'
+ac_subst_vars='SHELL PATH_SEPARATOR PACKAGE_NAME PACKAGE_TARNAME PACKAGE_VERSION PACKAGE_STRING PACKAGE_BUGREPORT exec_prefix prefix program_transform_name bindir sbindir libexecdir datadir sysconfdir sharedstatedir localstatedir libdir includedir oldincludedir infodir mandir build_alias host_alias target_alias DEFS ECHO_C ECHO_N ECHO_T LIBS PLUGIN_DIR ALLOWEDIPS LOADLIMIT BARTLBY_SYNC BARTLBY_SYNC_USER BARTLBY_SYNC_PW BARTLBY_SYNC_CLIENTNAME CC CFLAGS LDFLAGS CPPFLAGS ac_ct_CC EXEEXT OBJEXT BARTLBY_USER AWK SET_MAKE INSTALL_PATH INSTALL_OPTIONS CPP EGREP LIBOBJS LTLIBOBJS'
 ac_subst_files=''
 
 # Initialize some variables set by options.
@@ -848,6 +848,10 @@ Optional Packages:
   --with-allowed-ips      from wich ip addresses connections are allowed?
                           seperated with commas
   --with-load-limit       load limit to skip checks
+  --with-sync-url         Url to the bartlby-ui installation
+  --with-sync-user        username for the sync
+  --with-sync-password    password for the sync
+  --with-sync-clientname  clientname for the sync
   --with-user             Bartlby User
 
 Some influential environment variables:
@@ -1340,6 +1344,47 @@ if test "${with_load_limit+set}" = set; then
 else
   LOADLIMIT="50"
 fi;
+
+
+
+# Check whether --with-sync-url or --without-sync-url was given.
+if test "${with_sync_url+set}" = set; then
+  withval="$with_sync_url"
+  BARTLBY_SYNC="${withval}"
+else
+  BARTLBY_SYNC="http://localhost/bartlby-ui/"
+fi;
+
+
+
+# Check whether --with-sync-user or --without-sync-user was given.
+if test "${with_sync_user+set}" = set; then
+  withval="$with_sync_user"
+  BARTLBY_SYNC_USER="${withval}"
+else
+  BARTLBY_SYNC_USER="sync"
+fi;
+
+
+
+# Check whether --with-sync-pw or --without-sync-pw was given.
+if test "${with_sync_pw+set}" = set; then
+  withval="$with_sync_pw"
+  BARTLBY_SYNC_PW="${withval}"
+else
+  BARTLBY_SYNC_PW="sync"
+fi;
+
+
+
+# Check whether --with-sync-clientname or --without-sync-clientname was given.
+if test "${with_sync_clientname+set}" = set; then
+  withval="$with_sync_clientname"
+  BARTLBY_SYNC_CLIENTNAME="${withval}"
+else
+  BARTLBY_SYNC_CLIENTNAME="bartlbydemo"
+fi;
+
 
 
 ac_ext=c
@@ -6051,7 +6096,7 @@ done
 
 
 
-                                        ac_config_files="$ac_config_files Makefile.conf bartlby.cfg postinstall-pak preinstall-pak"
+                                                  ac_config_files="$ac_config_files Makefile.conf bartlby.cfg postinstall-pak preinstall-pak agent_sync.cfg"
 
 cat >confcache <<\_ACEOF
 # This file is a shell script that caches the results of configure
@@ -6607,6 +6652,7 @@ do
   "bartlby.cfg" ) CONFIG_FILES="$CONFIG_FILES bartlby.cfg" ;;
   "postinstall-pak" ) CONFIG_FILES="$CONFIG_FILES postinstall-pak" ;;
   "preinstall-pak" ) CONFIG_FILES="$CONFIG_FILES preinstall-pak" ;;
+  "agent_sync.cfg" ) CONFIG_FILES="$CONFIG_FILES agent_sync.cfg" ;;
   *) { { echo "$as_me:$LINENO: error: invalid argument: $ac_config_target" >&5
 echo "$as_me: error: invalid argument: $ac_config_target" >&2;}
    { (exit 1); exit 1; }; };;
@@ -6693,6 +6739,10 @@ s,@LIBS@,$LIBS,;t t
 s,@PLUGIN_DIR@,$PLUGIN_DIR,;t t
 s,@ALLOWEDIPS@,$ALLOWEDIPS,;t t
 s,@LOADLIMIT@,$LOADLIMIT,;t t
+s,@BARTLBY_SYNC@,$BARTLBY_SYNC,;t t
+s,@BARTLBY_SYNC_USER@,$BARTLBY_SYNC_USER,;t t
+s,@BARTLBY_SYNC_PW@,$BARTLBY_SYNC_PW,;t t
+s,@BARTLBY_SYNC_CLIENTNAME@,$BARTLBY_SYNC_CLIENTNAME,;t t
 s,@CC@,$CC,;t t
 s,@CFLAGS@,$CFLAGS,;t t
 s,@LDFLAGS@,$LDFLAGS,;t t
@@ -6978,4 +7028,5 @@ echo "#          bartlby Agent              #"
 echo "######################################"
 echo "Base path: $prefix";
 echo "Plugin dir: $PLUGIN_DIR";
+echo "Sync Host: $BARTLBY_SYNC";
 echo "install: $INSTALL_PATH a $install_path";

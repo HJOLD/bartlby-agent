@@ -19,6 +19,22 @@ dnl check for allowed IPS
 AC_ARG_WITH(load-limit,AC_HELP_STRING([--with-load-limit], [load limit to skip checks]), LOADLIMIT="${withval}", LOADLIMIT="50")
 AC_SUBST(LOADLIMIT)
 
+dnl check for allowed IPS
+AC_ARG_WITH(sync-url,AC_HELP_STRING([--with-sync-url], [Url to the bartlby-ui installation]), BARTLBY_SYNC="${withval}", BARTLBY_SYNC="http://localhost/bartlby-ui/")
+AC_SUBST(BARTLBY_SYNC)
+
+dnl check for allowed IPS
+AC_ARG_WITH(sync-user,AC_HELP_STRING([--with-sync-user], [username for the sync]), BARTLBY_SYNC_USER="${withval}", BARTLBY_SYNC_USER="sync")
+AC_SUBST(BARTLBY_SYNC_USER)
+
+dnl check for allowed IPS
+AC_ARG_WITH(sync-pw,AC_HELP_STRING([--with-sync-password], [password for the sync]), BARTLBY_SYNC_PW="${withval}", BARTLBY_SYNC_PW="sync")
+AC_SUBST(BARTLBY_SYNC_PW)
+
+AC_ARG_WITH(sync-clientname,AC_HELP_STRING([--with-sync-clientname], [clientname for the sync]), BARTLBY_SYNC_CLIENTNAME="${withval}", BARTLBY_SYNC_CLIENTNAME="bartlbydemo")
+AC_SUBST(BARTLBY_SYNC_CLIENTNAME)
+
+
 AC_CHECK_LIB(socket, socket)
 
 
@@ -71,11 +87,12 @@ AC_FUNC_VPRINTF
 AC_CHECK_FUNCS([alarm gethostbyname gettimeofday inet_ntoa memmove memset setenv socket strdup strstr])
 
 
-AC_CONFIG_FILES([Makefile.conf bartlby.cfg postinstall-pak preinstall-pak])
+AC_CONFIG_FILES([Makefile.conf bartlby.cfg postinstall-pak preinstall-pak agent_sync.cfg])
 AC_OUTPUT
 echo "######################################"
 echo "#          bartlby Agent              #"
 echo "######################################"
 echo "Base path: $prefix";
 echo "Plugin dir: $PLUGIN_DIR";
+echo "Sync Host: $BARTLBY_SYNC";
 echo "install: $INSTALL_PATH a $install_path";
