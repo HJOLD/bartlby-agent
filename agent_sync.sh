@@ -1,8 +1,8 @@
 #!/bin/sh
 MY_PATH=`echo $0 | sed -e 's,[\\/][^\\/][^\\/]*$,,'`
-. agent_sync.cfg
-cd $BARTLBY_HOME;
 
+cd $MY_PATH;
+. agent_sync.cfg
 
 if [ ! -d "$BARTLBY_PLUGIN_DIR" ];
 then
@@ -15,6 +15,35 @@ function bartlby_dl_cfg {
 	echo "CFG updated";
 }
 
+function bartlby_dl_cmd {
+	wget  --http-passwd=$BARTLBY_PW --http-user=$BARTLBY_USER -O $BARTLBY_HOME/bartlby_cmd "$BARTLBY_HTTP_HOST/$1"
+	chmod a+x $BARTLBY_HOME/bartlby_cmd;
+}	
+
+function bartlby_get_cmd_bin {
+	if [ "$3" = "-" ];
+	then
+		echo "cmd binary: $2 missing on sync host";
+		return;
+	fi;
+	if [ ! -f "$BARTLBY_HOME/bartlby_cmd" ];
+	then
+		echo "DL: Agent $BARTLBY_HOME/bartlby_cmd";
+		bartlby_dl_agent $1 $BARTLBY_HOME/bartlby_cmd;
+		return;
+	fi;
+	my_md=$(md5sum $BARTLBY_HOME/bartlby_cmd|awk '{print $1}');
+	
+	if [ "$my_md" != "$3" ];
+	then
+		echo "DL1 $3 / $my_md $BARTLBY_HOME/bartlby_cmd : $url";
+		bartlby_dl_cmd $1 $BARTLBY_HOME/bartlby_cmd;
+	else
+		echo "agent $BARTLBY_HOME/bartlby_cmd is up-to-date";
+	fi;
+}
+
+
 function bartlby_dl_agent {
 	wget  --http-passwd=$BARTLBY_PW --http-user=$BARTLBY_USER -O $BARTLBY_HOME/bartlby_agent "$BARTLBY_HTTP_HOST/$1"
 	chmod a+x $BARTLBY_HOME/bartlby_agent;
@@ -22,8 +51,8 @@ function bartlby_dl_agent {
 
 
 function bartlby_dl_plg {
-	wget  -q --http-passwd=$BARTLBY_PW --http-user=$BARTLBY_USER -O $2 "$BARTLBY_HTTP_HOST/$1"
-	chmod a+x $2;
+	wget  -q --http-passwd=$BARTLBY_PW --http-user=$BARTLBY_USER -O $BARTLBY_PLUGIN_DIR/$2 "$BARTLBY_HTTP_HOST/$1"
+	chmod a+x $BARTLBY_PLUGIN_DIR/$2;
 }	
 
 function bartlby_get_agent_bin {
@@ -84,6 +113,11 @@ do
 	then
 		bartlby_get_agent_bin $url $fn $md
 	fi;
+	if [ "$cmd" = "CB" ];
+	then
+		bartlby_get_cmd_bin $url $fn $md
+	fi;
+	
 	if [ "$cmd" = "ADDSERVER" ];
 	then
 		echo "client first time auto registered";
