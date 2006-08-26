@@ -3,6 +3,11 @@ MY_PATH=`echo $0 | sed -e 's,[\\/][^\\/][^\\/]*$,,'`
 cd $MY_PATH;
 . agent_sync.cfg
 
+if [ ! -d "$BARTLBY_PLUGIN_DIR" ];
+then
+	mkdir -p $BARTLBY_PLUGIN_DIR;
+fi;
+
 function bartlby_dl_cfg {
 	wget  -q --http-passwd=$BARTLBY_PW --http-user=$BARTLBY_USER -O bartlby.cfg "$BARTLBY_HTTP_HOST/extensions_wrap.php?script=AgentSyncer/getcfg.php"
 	perl -i -pe "s#PLUGIN_DIR#$BARTLBY_PLUGIN_DIR#" bartlby.cfg
