@@ -34,6 +34,8 @@ AC_SUBST(BARTLBY_SYNC_PW)
 AC_ARG_WITH(sync-clientname,AC_HELP_STRING([--with-sync-clientname], [clientname for the sync]), BARTLBY_SYNC_CLIENTNAME="${withval}", BARTLBY_SYNC_CLIENTNAME="bartlbydemo")
 AC_SUBST(BARTLBY_SYNC_CLIENTNAME)
 
+AC_ARG_WITH(sync-arch,AC_HELP_STRING([--with-sync-arch], [arch for the sync]), BARTLBY_SYNC_ARCH="${withval}", BARTLBY_SYNC_ARCH="i386")
+AC_SUBST(BARTLBY_SYNC_ARCH)
 
 AC_CHECK_LIB(socket, socket)
 

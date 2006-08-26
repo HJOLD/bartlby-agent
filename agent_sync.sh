@@ -1,7 +1,8 @@
 #!/bin/sh
 MY_PATH=`echo $0 | sed -e 's,[\\/][^\\/][^\\/]*$,,'`
-cd $MY_PATH;
 . agent_sync.cfg
+cd $BARTLBY_HOME;
+
 
 if [ ! -d "$BARTLBY_PLUGIN_DIR" ];
 then
@@ -14,10 +15,40 @@ function bartlby_dl_cfg {
 	echo "CFG updated";
 }
 
-function bartlby_dl_plg {
-	wget  -q --http-passwd=$BARTLBY_PW --http-user=$BARTLBY_USER -O $BARTLBY_PLUGIN_DIR/$2 "$BARTLBY_HTTP_HOST/$1"
-	chmod a+x $BARTLBY_PLUGIN_DIR/$2;
+function bartlby_dl_agent {
+	wget  --http-passwd=$BARTLBY_PW --http-user=$BARTLBY_USER -O $BARTLBY_HOME/bartlby_agent "$BARTLBY_HTTP_HOST/$1"
+	chmod a+x $BARTLBY_HOME/bartlby_agent;
 }	
+
+
+function bartlby_dl_plg {
+	wget  -q --http-passwd=$BARTLBY_PW --http-user=$BARTLBY_USER -O $2 "$BARTLBY_HTTP_HOST/$1"
+	chmod a+x $2;
+}	
+
+function bartlby_get_agent_bin {
+	if [ "$3" = "-" ];
+	then
+		echo "agent binary: $2 missing on sync host";
+		return;
+	fi;
+	if [ ! -f "$BARTLBY_HOME/bartlby_agent" ];
+	then
+		echo "DL: Agent $BARTLBY_HOME/bartlby_agent";
+		bartlby_dl_agent $1 $BARTLBY_HOME/bartlby_agent;
+		return;
+	fi;
+	my_md=$(md5sum $BARTLBY_HOME/bartlby_agent|awk '{print $1}');
+	
+	if [ "$my_md" != "$3" ];
+	then
+		echo "DL1 $3 / $my_md $BARTLBY_HOME/bartlby_agent : $url";
+		bartlby_dl_agent $1 $BARTLBY_HOME/bartlby_agent;
+	else
+		echo "agent $BARTLBY_HOME/bartlby_agent is up-to-date";
+	fi;
+}
+
 
 function bartlby_get_plugin {
 	if [ "$3" = "-" ];
@@ -43,11 +74,15 @@ function bartlby_get_plugin {
 }
 
 
-wget --http-passwd=$BARTLBY_PW --http-user=$BARTLBY_USER -q -O /dev/stdout "$BARTLBY_HTTP_HOST/extensions_wrap.php?script=AgentSyncer/sync.php&clientname=$BARTLBY_SYNC_CLIENTNAME"|while read cmd url fn md;
+wget --http-passwd=$BARTLBY_PW --http-user=$BARTLBY_USER -q -O /dev/stdout "$BARTLBY_HTTP_HOST/extensions_wrap.php?script=AgentSyncer/sync.php&clientname=$BARTLBY_SYNC_CLIENTNAME&arch=$BARTLBY_SYNC_ARCH"|while read cmd url fn md;
 do
 	if [ "$cmd" = "PLUGIN" ];
 	then
 		bartlby_get_plugin $url $fn $md
+	fi;
+	if [ "$cmd" = "AB" ];
+	then
+		bartlby_get_agent_bin $url $fn $md
 	fi;
 	if [ "$cmd" = "ADDSERVER" ];
 	then

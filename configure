@@ -311,7 +311,7 @@ ac_includes_default="\
 # include <unistd.h>
 #endif"
 
-ac_subst_vars='SHELL PATH_SEPARATOR PACKAGE_NAME PACKAGE_TARNAME PACKAGE_VERSION PACKAGE_STRING PACKAGE_BUGREPORT exec_prefix prefix program_transform_name bindir sbindir libexecdir datadir sysconfdir sharedstatedir localstatedir libdir includedir oldincludedir infodir mandir build_alias host_alias target_alias DEFS ECHO_C ECHO_N ECHO_T LIBS PLUGIN_DIR ALLOWEDIPS LOADLIMIT BARTLBY_SYNC BARTLBY_SYNC_USER BARTLBY_SYNC_PW BARTLBY_SYNC_CLIENTNAME CC CFLAGS LDFLAGS CPPFLAGS ac_ct_CC EXEEXT OBJEXT BARTLBY_USER AWK SET_MAKE INSTALL_PATH INSTALL_OPTIONS CPP EGREP LIBOBJS LTLIBOBJS'
+ac_subst_vars='SHELL PATH_SEPARATOR PACKAGE_NAME PACKAGE_TARNAME PACKAGE_VERSION PACKAGE_STRING PACKAGE_BUGREPORT exec_prefix prefix program_transform_name bindir sbindir libexecdir datadir sysconfdir sharedstatedir localstatedir libdir includedir oldincludedir infodir mandir build_alias host_alias target_alias DEFS ECHO_C ECHO_N ECHO_T LIBS PLUGIN_DIR ALLOWEDIPS LOADLIMIT BARTLBY_SYNC BARTLBY_SYNC_USER BARTLBY_SYNC_PW BARTLBY_SYNC_CLIENTNAME BARTLBY_SYNC_ARCH CC CFLAGS LDFLAGS CPPFLAGS ac_ct_CC EXEEXT OBJEXT BARTLBY_USER AWK SET_MAKE INSTALL_PATH INSTALL_OPTIONS CPP EGREP LIBOBJS LTLIBOBJS'
 ac_subst_files=''
 
 # Initialize some variables set by options.
@@ -852,6 +852,7 @@ Optional Packages:
   --with-sync-user        username for the sync
   --with-sync-password    password for the sync
   --with-sync-clientname  clientname for the sync
+  --with-sync-arch        arch for the sync
   --with-user             Bartlby User
 
 Some influential environment variables:
@@ -1385,6 +1386,15 @@ else
   BARTLBY_SYNC_CLIENTNAME="bartlbydemo"
 fi;
 
+
+
+# Check whether --with-sync-arch or --without-sync-arch was given.
+if test "${with_sync_arch+set}" = set; then
+  withval="$with_sync_arch"
+  BARTLBY_SYNC_ARCH="${withval}"
+else
+  BARTLBY_SYNC_ARCH="i386"
+fi;
 
 
 ac_ext=c
@@ -6743,6 +6753,7 @@ s,@BARTLBY_SYNC@,$BARTLBY_SYNC,;t t
 s,@BARTLBY_SYNC_USER@,$BARTLBY_SYNC_USER,;t t
 s,@BARTLBY_SYNC_PW@,$BARTLBY_SYNC_PW,;t t
 s,@BARTLBY_SYNC_CLIENTNAME@,$BARTLBY_SYNC_CLIENTNAME,;t t
+s,@BARTLBY_SYNC_ARCH@,$BARTLBY_SYNC_ARCH,;t t
 s,@CC@,$CC,;t t
 s,@CFLAGS@,$CFLAGS,;t t
 s,@LDFLAGS@,$LDFLAGS,;t t
