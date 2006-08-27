@@ -10,8 +10,9 @@ then
 fi;
 
 function bartlby_dl_cfg {
-	wget  -q --http-passwd=$BARTLBY_PW --http-user=$BARTLBY_USER -O bartlby.cfg "$BARTLBY_HTTP_HOST/extensions_wrap.php?script=AgentSyncer/getcfg.php"
-	perl -i -pe "s#PLUGIN_DIR#$BARTLBY_PLUGIN_DIR#" bartlby.cfg
+	wget  -q --http-passwd=$BARTLBY_PW --http-user=$BARTLBY_USER -O bartlby.cfg.tmp "$BARTLBY_HTTP_HOST/extensions_wrap.php?script=AgentSyncer/getcfg.php"
+	perl -i -pe "s#PLUGIN_DIR#$BARTLBY_PLUGIN_DIR#" bartlby.cfg.tmp
+	mv bartlby.cfg.tmp bartlby.cfg
 	echo "CFG updated";
 }
 
