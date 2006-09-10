@@ -14,8 +14,13 @@ function bartlby_dl_cfg {
 	perl -i -pe "s#PLUGIN_DIR#$BARTLBY_PLUGIN_DIR#" bartlby.cfg.tmp
 	if [ -s "bartlby.cfg.tmp" ];
 	then
-		mv bartlby.cfg.tmp bartlby.cfg
-		echo "CFG updated";
+		grep -sq "allowed_ips" bartlby.cfg.tmp;
+		EX=$?;
+		if [ $EX = 0 ];
+		then
+			mv bartlby.cfg.tmp bartlby.cfg
+			echo "CFG updated";
+		fi;
 	fi;
 }
 
