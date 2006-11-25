@@ -16,7 +16,7 @@ $Source$
 
 
 $Log$
-Revision 1.3  2006/11/25 00:54:46  hjanuschka
+Revision 1.4  2006/11/25 01:16:18  hjanuschka
 auto commit
 
 
@@ -157,11 +157,48 @@ void agent_v2_do_check(int sock, char * cfgfile)  {
 	char * plugin_dir;
 	char * exec_str;
 	struct sigaction act1, oact1;
+	char * allowed_ip_list;
+	char * token;
+	struct sockaddr_in name;
+	int namelen = sizeof(name);
+	int ip_ok=-1;
+	
 	
 	u_int32_t packet_crc32;
 
 	
 	SSL *ssl=NULL;
+	
+	
+	allowed_ip_list=getConfigValue("allowed_ips", cfgfile);
+	if(allowed_ip_list == NULL) {
+        	syslog(LOG_ERR,"No allowed IP");
+        	exit(1);
+        	
+        }
+        
+        
+        token=strtok(allowed_ip_list,",");
+        
+        if (getpeername(0,(struct sockaddr *)&name, &namelen) < 0) {
+   		syslog(LOG_ERR, "getpeername failed");
+   		exit(1);
+   	}
+        
+        while(token != NULL) {
+        	if(strcmp(token, inet_ntoa(name.sin_addr)) == 0) {
+        		ip_ok=0;	
+        	}
+        	token=strtok(NULL, ",");	
+        }
+        free(allowed_ip_list);
+        
+        if(ip_ok < 0) {
+        	//sleep(1);
+        	syslog(LOG_ERR, "ip blocked");
+		exit(1);
+        }
+	
 	
 	plugin_dir=getConfigValue("agent_plugin_dir", cfgfile);
 	if(plugin_dir == NULL) {
