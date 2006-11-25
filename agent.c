@@ -16,6 +16,9 @@ $Source$
 
 
 $Log$
+Revision 1.5  2006/11/25 12:31:56  hjanuschka
+auto commit
+
 Revision 1.4  2006/11/25 01:16:18  hjanuschka
 auto commit
 
@@ -40,7 +43,7 @@ auto commit
 
 #include <openssl/dh.h>
 #include <openssl/ssl.h>
-
+#include <openssl/err.h>
 
 #include "bartlby_v2_dh.h"
 
@@ -88,7 +91,7 @@ int main(int argc, char **argv){
 	
 	
 	/* open a connection to the syslog facility */
-	openlog("bartlby_agent-v2",LOG_PID,LOG_DAEMON);
+	openlog("bartlby_agent-v2-d",LOG_PID,LOG_DAEMON);
 	/* generate the CRC 32 table */
 	agent_v2_generate_crc32_table();
 	
@@ -230,7 +233,7 @@ void agent_v2_do_check(int sock, char * cfgfile)  {
 		while(((rc=SSL_accept(ssl))!=1) && (SSL_get_error(ssl,rc)==SSL_ERROR_WANT_READ));
 
 		if(rc!=1){
-			syslog(LOG_ERR,"Error: Could not complete SSL handshake. %d\n",SSL_get_error(ssl,rc));
+			syslog(LOG_ERR,"Error: Could not complete SSL handshake. %d (%s)\n",SSL_get_error(ssl,rc), ERR_error_string(ERR_get_error(), NULL));
 			return;
 		}
 		bytes_to_recv=sizeof(receive_packet);
