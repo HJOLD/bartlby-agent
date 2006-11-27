@@ -40,12 +40,13 @@ AC_SUBST(BARTLBY_SYNC_ARCH)
 AC_CHECK_LIB(socket, socket)
 
 dnl Check for ssl library.
-  enable_ssl=yes
+ 
   
   AC_ARG_ENABLE(ssl,
   [  --enable-ssl=PREFIX       Enable SSL in varios parts of CORE)],
   [
-  	case "$withval" in
+  	
+  	case "$enable_ssl" in
   		n|no)
   			;;
   		y|ye|yes)
@@ -59,6 +60,7 @@ dnl Check for ssl library.
   	esac
   ])
   AC_MSG_CHECKING(for OpenSSL support)
+  
   if test "$enable_ssl" == "yes" ; then
   	AC_MSG_RESULT(yes)
   	AC_CHECK_LIB(ssl, SSL_library_init,ssl_lib_found=yes,ssl_lib_found=no)
@@ -78,7 +80,8 @@ dnl Check for ssl library.
 	fi;
   		
   else
-  	AC_MSG_ERROR([Unable to locate -lssl -lcrypto. OpenSSL support is currently required.])
+  	#AC_MSG_ERROR([Unable to locate -lssl -lcrypto. OpenSSL support is currently required.])
+  	AC_MSG_RESULT(no)
   	
   fi
 

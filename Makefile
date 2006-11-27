@@ -5,6 +5,11 @@ AGENT = config.o  agent.o
 
 CMD = config.o cmd.o
 
+.c.o:
+
+	$(CC) $(EXTRAOPTIONS)  $(INCLUDE_L)   -c $<
+
+
 all: agent cmd agent_old
 
 cmd: ${CMD}
