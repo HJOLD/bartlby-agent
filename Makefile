@@ -1,9 +1,9 @@
 include Makefile.conf
 
 AGENT_OLD = config.o  agent_old.o
-AGENT = config.o  agent.o
+AGENT = config.o  agent.o global.o 
 
-CMD = config.o cmd.o
+CMD = config.o cmd.o global.o
 
 .c.o:
 
@@ -13,7 +13,7 @@ CMD = config.o cmd.o
 all: agent cmd agent_old
 
 cmd: ${CMD}
-	$(CC)  -I. $(EXTRAOPTIONS) $(INCLUDE_LL)   -o bartlby_cmd ${CMD}
+	$(CC)  -I. $(OPENSSL_ADDON) $(EXTRAOPTIONS) $(INCLUDE_LL)   -o bartlby_cmd ${CMD}
 	
 agent_old: ${AGENT_OLD} 
 	$(CC)  -I. $(EXTRAOPTIONS) $(INCLUDE_LL)   -o bartlby_agent_old ${AGENT_OLD}

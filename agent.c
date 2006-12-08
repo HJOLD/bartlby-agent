@@ -16,6 +16,9 @@ $Source$
 
 
 $Log$
+Revision 1.7  2006/12/08 22:36:07  hjanuschka
+auto commit
+
 Revision 1.6  2006/11/27 21:16:54  hjanuschka
 auto commit
 
@@ -68,7 +71,7 @@ void agent_v2_generate_crc32_table(void);
 void agent_v2_do_check(int sock, char * cfgfile);
 void agent_v2_randomize_buffer(char *buffer,int buffer_size);
 
-static unsigned long crc32_table[256];
+unsigned long crc32_table[256];
 typedef struct v2_packet_struct{
 
 	u_int32_t crc32_value;
@@ -116,7 +119,7 @@ int main(int argc, char **argv){
 		use_ssl=atoi(cfg_use_ssl);
 		free(cfg_use_ssl);
 	}
-	syslog(LOG_ERR, "use_ssl: %d cfg_file: %s", use_ssl, argv[argc-1]);
+	//syslog(LOG_ERR, "use_ssl: %d cfg_file: %s", use_ssl, argv[argc-1]);
 	
 #ifdef HAVE_SSL
 	if(use_ssl == 1) {
@@ -444,74 +447,9 @@ sendit:
 }
 
 
-void agent_v2_randomize_buffer(char *buffer,int buffer_size){
-	FILE *fp;
-	int x;
-	int seed;
 
-	/**** FILL BUFFER WITH RANDOM ALPHA-NUMERIC CHARACTERS ****/
 
-	/***************************************************************
-	   Only use alpha-numeric characters becase plugins usually
-	   only generate numbers and letters in their output.  We
-	   want the buffer to contain the same set of characters as
-	   plugins, so its harder to distinguish where the real output
-	   ends and the rest of the buffer (padded randomly) starts.
-	***************************************************************/
-
-	/* try to get seed value from /dev/urandom, as its a better source of entropy */
-	fp=fopen("/dev/urandom","r");
-	if(fp!=NULL){
-		seed=fgetc(fp);
-		fclose(fp);
-	        }
-
-	/* else fallback to using the current time as the seed */
-	else
-		seed=(int)time(NULL);
-
-	srand(seed);
-	for(x=0;x<buffer_size;x++)
-		buffer[x]=(int)'0'+(int)(72.0*rand()/(RAND_MAX+1.0));
-
-	return;
-        }
-      
-
-void agent_v2_generate_crc32_table(void){
-	unsigned long crc, poly;
-	int i, j;
-
-	poly=0xEDB88320L;
-	for(i=0;i<256;i++){
-		crc=i;
-		for(j=8;j>0;j--){
-			if(crc & 1)
-				crc=(crc>>1)^poly;
-			else
-				crc>>=1;
-		        }
-		crc32_table[i]=crc;
-                }
-
-	return;
-}
-
-/* calculates the CRC 32 value for a buffer */
-unsigned long agent_v2_calculate_crc32(char *buffer, int buffer_size){
-	register unsigned long crc;
-	int this_char;
-	int current_index;
-
-	crc=0xFFFFFFFF;
-
-	for(current_index=0;current_index<buffer_size;current_index++){
-		this_char=(int)buffer[current_index];
-		crc=((crc>>8) & 0x00FFFFFF) ^ crc32_table[(crc ^ this_char) & 0xFF];
-	        }
-
-	return (crc ^ 0xFFFFFFFF);
-        }        
+    
         
 static void agent_conn_timeout(int signo) {
  	connection_timed_out = 1;
@@ -519,78 +457,5 @@ static void agent_conn_timeout(int signo) {
 
 
 
-/* sends all data - thanks to Beej's Guide to Network Programming */
-int bartlby_tcp_sendall(int s, char *buf, int *len){
-	int total=0;
-	int bytesleft=*len;
-	int n=0;
-
-	/* send all the data */
-	while(total<*len){
-
-		/* send some data */
-		n=send(s,buf+total,bytesleft,0);
-
-		/* break on error */
-		if(n==-1)
-			break;
-
-		/* apply bytes we sent */
-		total+=n;
-		bytesleft-=n;
-	        }
-
-	/* return number of bytes actually send here */
-	*len=total;
-
-	/* return -1 on failure, 0 on success */
-	return n==-1?-1:0;
-        }
-
-
-/* receives all data - modelled after sendall() */
-int bartlby_tcp_recvall(int s, char *buf, int *len, int timeout){
-	int total=0;
-	int bytesleft=*len;
-	int n=0;
-	time_t start_time;
-	time_t current_time;
-	
-	/* clear the receive buffer */
-	bzero(buf,*len);
-
-	time(&start_time);
-
-	/* receive all data */
-	while(total<*len){
-
-		/* receive some data */
-		n=recv(s,buf+total,bytesleft,0);
-
-		/* no data has arrived yet (non-blocking socket) */
-		if(n==-1 && errno==EAGAIN){
-			time(&current_time);
-			if(current_time-start_time>timeout)
-				break;
-			sleep(1);
-			continue;
-		        }
-
-		/* receive error or client disconnect */
-		else if(n<=0)
-			break;
-
-		/* apply bytes we received */
-		total+=n;
-		bytesleft-=n;
-	        }
-
-	/* return number of bytes actually received here */
-	*len=total;
-
-	/* return <=0 on failure, bytes received on success */
-	return (n<=0)?n:total;
-        }
-        
 
 
