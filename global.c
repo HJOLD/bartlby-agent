@@ -16,6 +16,9 @@ $Source$
 
 
 $Log$
+Revision 1.2  2006/12/09 01:25:24  hjanuschka
+auto commit
+
 Revision 1.1  2006/12/08 22:36:07  hjanuschka
 auto commit
 
@@ -47,7 +50,7 @@ auto commit
 #include <errno.h>
 #include <fcntl.h>
 #include <netdb.h>
-
+#include <time.h>
 
 
 #ifdef HAVE_SSL
@@ -131,7 +134,7 @@ int bartlby_tcp_recvall(int s, char *buf, int *len, int timeout){
 			time(&current_time);
 			if(current_time-start_time>timeout)
 				break;
-			sleep(1);
+			usleep(100);
 			continue;
 		        }
 
