@@ -16,518 +16,466 @@ $Source$
 
 
 $Log$
-Revision 1.3  2006/12/08 22:36:07  hjanuschka
+Revision 1.4  2006/12/09 12:06:04  hjanuschka
 auto commit
 
-Revision 1.6  2006/11/27 21:16:54  hjanuschka
+Revision 1.2  2006/08/08 00:10:30  hjanuschka
 auto commit
 
-Revision 1.5  2006/11/25 12:31:56  hjanuschka
+Revision 1.1  2006/08/07 18:52:05  hjanuschka
 auto commit
 
-Revision 1.4  2006/11/25 01:16:18  hjanuschka
-auto commit
+Revision 1.1  2006/07/22 23:03:11  hjanuschka
+remove agent from the core  for portability reasons
 
+Revision 1.6  2006/02/19 15:04:13  hjanuschka
+*** empty log message ***
 
+Revision 1.5  2005/10/13 22:42:29  hjanuschka
+portier/cmd: get_services -> recieve a list of passive services
+
+Revision 1.4  2005/09/28 21:46:30  hjanuschka
+converted files to unix
+jabber.sh -> disabled core dumps -> jabblibs segfaults
+                                    will try to patch it later
+
+Revision 1.3  2005/09/13 22:11:52  hjanuschka
+ip_list moved to .cfg
+	allowed_ips
+load limit moved to cfg
+	agent_load_limit
+
+portier now also uses ip list to verify ip of connector
+
+portier: passive check without plg args fixed
+
+Revision 1.2  2005/09/09 19:26:10  hjanuschka
+compile warnings fixed (cmd.c)
+
+Revision 1.1  2005/09/09 19:24:18  hjanuschka
+littel cmd tool for working with passive services
 
 */
-#include <malloc.h>
+
+
+
+#include <time.h>
 #include <stdio.h>
 #include <syslog.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/types.h>
+#include <sys/stat.h>
 #include <unistd.h>
 #include <signal.h>
 #include <sys/wait.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <errno.h>
-#include <fcntl.h>
+#include <sys/ipc.h>
+#include <sys/shm.h>
 #include <getopt.h>
+#include <netdb.h>
 
-
-#ifdef HAVE_SSL
-#include <openssl/dh.h>
-#include <openssl/ssl.h>
-#include <openssl/err.h>
-#include <openssl/rand.h>
-#include "bartlby_v2_dh.h"
-#endif
-
-#define PORTIER_SVCLIST_PACKET 1
-#define PORTIER_RESULT_PACKET 2
-#define PORTIER_REQUEST_PACKET 3
-
-#define PORTIER_TIMEOUT 30
-
-typedef struct port_packet_struct{
-
-	u_int32_t crc32_value;
-	int16_t   exit_code;
-	int16_t   packet_type;
-	char      output[2048];
-	char      cmdline[2048];
-	char      plugin[2048];
-	char 	   perf_handler[1024];
-	int32_t	   service_id;
-	
-	 
-} portier_packet;
 
 
 unsigned long crc32_table[256];
 
-static int passive_server_or_service_id;
-static int passive_action;
-static int passive_exit_code;
-static char passive_perf_output[2048];
-static char passive_output[2048];
-static int use_ssl=0;
+char * new_passive_text;
+int new_passive_state;
+
+char * passive_action=NULL;
+char * passive_host=NULL;
+int passive_service=-1;
+int passive_port=-1;
+
+static int connection_timed_out=0;
 
 
-static char * passive_host_ip;
-static int passive_host_port;
-
-int portier_my_connect(char *host_name,int port,int *sd,char *proto);
-int portier_my_tcp_connect(char *host_name,int port,int *sd);
-unsigned long agent_v2_calculate_crc32(char *buffer, int buffer_size);
-void agent_v2_generate_crc32_table(void);
-void agent_v2_randomize_buffer(char *buffer,int buffer_size);
-int bartlby_tcp_recvall(int s, char *buf, int *len, int timeout);
-int bartlby_tcp_sendall(int s, char *buf, int *len);
-void parse_options(int argc, char **argv);
-
-
-void dispHelp(void) {
-	
-	printf("-h   display help\n");	
-	printf("-s   server or service ID\n");	
-	printf("-L   get a list of service ID's\n");	
-	printf("-P   get Plugin parameters\n");	
-	printf("-R   submit a plugin result + exit_code\n");	
-#ifdef HAVE_SSL
-	printf("-S   USE SSL\n");	
-#endif
-	printf("-m   output of your plugin\n");	
-	printf("-z   Perfline!\n");	
-	printf("-e   EXIT code\n");	
-	printf("-i   IP of the passive host\n");	
-	printf("-p   Port of the passive host\n");	
-	
-	exit(1);
-	
-	
+static void bartlby_conn_timeout(int signo) {
+ 	connection_timed_out = 1;
 }
 
-void parse_options(int argc, char **argv) {
+
+int connect_to(char * host, int port) {
+	int client_socket;
+	int client_connect_retval=-1;
+	struct sockaddr_in remote_side;
+	struct hostent * remote_host;
+	struct sigaction act1, oact1;
+	
+	
+	connection_timed_out=0;
+	
+	if((remote_host = gethostbyname(host)) == 0) {
+		
+		return -1; //timeout
+	}
+	memset(&remote_side, '\0', sizeof(remote_side));
+	remote_side.sin_family=AF_INET;
+	remote_side.sin_addr.s_addr = htonl(INADDR_ANY);
+	remote_side.sin_addr.s_addr = ((struct in_addr *) (remote_host->h_addr))->s_addr;
+	remote_side.sin_port=htons(port);
+	
+	if((client_socket = socket(AF_INET, SOCK_STREAM, 0)) == -1) {
+			
+		
+		return -2; //Socket
+			
+			
+	}
+	act1.sa_handler = bartlby_conn_timeout;
+	sigemptyset(&act1.sa_mask);
+	act1.sa_flags=0;
+	#ifdef SA_INTERRUPT
+	act1.sa_flags |= SA_INTERRUPT;
+	#endif
+	
+	if(sigaction(SIGALRM, &act1, &oact1) < 0) {
+		
+		return -3; //timeout handler
+	
+		
+	}
+	alarm(5);
+	client_connect_retval = connect(client_socket, (void *) &remote_side, sizeof(remote_side));
+	alarm(0);
+	
+	if(connection_timed_out == 1 || client_connect_retval == -1) {
+		return -4; //connect
+	} 
+	connection_timed_out=0;
+	
+	return client_socket; 	
+}
+
+void cmd_get_passive() {
+	int res;
+	char verstr[2048];
+	char cmdstr[2048];
+	char result[2048];
+	char * token, * token_t;
+	int rc;
+	
+	res=connect_to(passive_host, passive_port);
+	if(res > 0) {
+		
+		connection_timed_out=0;
+		alarm(5);
+		if(read(res, verstr, 1024) < 0) {
+			printf("BAD!\n");
+			exit(1);
+		}
+		if(verstr[0] != '+') {
+			printf("Server said a bad result: '%s'\n", verstr);
+			close(res);
+			exit(1);
+		}
+		alarm(0);
+		//printf("Connected to: %s\n", verstr);		
+		sprintf(cmdstr, "2|%d|", passive_service);
+		connection_timed_out=0;
+		alarm(5);
+		if(write(res, cmdstr, 1024) < 0) {
+			printf("BAD2!\n");
+			exit(1);
+		}
+		alarm(0);
+		connection_timed_out=0;
+		alarm(5);
+		if((rc=read(res, result, 1024)) < 0) {
+			printf("BAD!\n");
+			exit(1);
+		}
+		alarm(0);
+		result[rc-1]='\0'; //cheap trim *fg*
+		if(result[0] != '+') {
+			printf("Server said a bad result: '%s'\n", result);
+		}  else {
+			token=strtok(result, "|");
+			if(token != NULL) {
+				token=strtok(NULL, " ");
+				if(token != NULL) {
+					token_t=strtok(NULL, "|");
+					if(token_t == NULL) {
+						token_t=strdup("");
+					}
+					printf("%s %s", token, token_t);	
+					printf("\n");
+					close(res);
+					exit(1);
+					
+				} else {
+					close(res);
+					printf("hmmm3\n");	
+					exit(3);
+				}
+			} else {
+				close(res);
+				printf("hmmm1\n");	
+				exit(3);
+			}
+		}
+		
+		
+			
+	} else {
+		
+		printf("Connect failed\n");
+		exit(2);	
+	}	
+}
+
+void cmd_get_server_id() {
+	int res;
+	char verstr[2048];
+	char cmdstr[2048];
+	char result[2048];
+	char myhostname[255];
+	
+	int rc;
+	
+	if(gethostname(myhostname, 255) != 0) {
+		printf("gethostname() failed\n");
+		exit(1);	
+	}
+	fprintf(stderr, "trying to get server id for: %s \n", myhostname);
+	res=connect_to(passive_host, passive_port);
+	if(res > 0) {
+		
+		connection_timed_out=0;
+		alarm(5);
+		if(read(res, verstr, 1024) < 0) {
+			printf("BAD!\n");
+			exit(1);
+		}
+		if(verstr[0] != '+') {
+			printf("Server said a bad result: '%s'\n", verstr);
+			close(res);
+			exit(1);
+		}
+		alarm(0);
+		//printf("Connected to: %s\n", verstr);		
+		sprintf(cmdstr, "5|%s|\n", myhostname);
+		
+		connection_timed_out=0;
+		alarm(5);
+		if(write(res, cmdstr, 1024) < 0) {
+			printf("BAD2!\n");
+			exit(1);
+		}
+		alarm(0);
+		connection_timed_out=0;
+		alarm(5);
+		while((rc=read(res, result, 1024)) > 0) {
+			result[rc-1]='\0';
+			printf("%s", result);
+		}
+		
+			
+	} else {
+		
+		printf("Connect failed\n");
+		exit(2);	
+	}	
+}
+
+void cmd_get_services() {
+	int res;
+	char verstr[2048];
+	char cmdstr[2048];
+	char result[2048];
+	
+	int rc;
+	
+	res=connect_to(passive_host, passive_port);
+	if(res > 0) {
+		
+		connection_timed_out=0;
+		alarm(5);
+		if(read(res, verstr, 1024) < 0) {
+			printf("BAD!\n");
+			exit(1);
+		}
+		if(verstr[0] != '+') {
+			printf("Server said a bad result: '%s'\n", verstr);
+			close(res);
+			exit(1);
+		}
+		alarm(0);
+		//printf("Connected to: %s\n", verstr);		
+		sprintf(cmdstr, "4|%d|\n", passive_service);
+		
+		connection_timed_out=0;
+		alarm(5);
+		if(write(res, cmdstr, 1024) < 0) {
+			printf("BAD2!\n");
+			exit(1);
+		}
+		alarm(0);
+		connection_timed_out=0;
+		alarm(5);
+		while((rc=read(res, result, 1024)) > 0) {
+			result[rc-1]='\0';
+			printf("%s", result);
+		}
+		
+			
+	} else {
+		
+		printf("Connect failed\n");
+		exit(2);	
+	}	
+}
+
+void cmd_set_passive() {
+	int res;
+	char verstr[2048];
+	char cmdstr[2048];
+	char result[2048];
+	
+	int rc;
+	
+	res=connect_to(passive_host, passive_port);
+	if(res > 0) {
+		
+		connection_timed_out=0;
+		alarm(5);
+		if(read(res, verstr, 1024) < 0) {
+			printf("BAD!\n");
+			exit(1);
+		}
+		if(verstr[0] != '+') {
+			printf("Server said a bad result: '%s'\n", verstr);
+			close(res);
+			exit(1);
+		}
+		alarm(0);
+		//printf("Connected to: %s\n", verstr);		
+		sprintf(cmdstr, "1|%d|%d|%s", passive_service, new_passive_state, new_passive_text);
+		connection_timed_out=0;
+		alarm(5);
+		if(write(res, cmdstr, 1024) < 0) {
+			printf("BAD2!\n");
+			exit(1);
+		}
+		alarm(0);
+		connection_timed_out=0;
+		alarm(5);
+		if((rc=read(res, result, 1024)) < 0) {
+			printf("BAD!\n");
+			exit(1);
+		}
+		alarm(0);
+		result[rc-1]='\0'; //cheap trim *fg*
+		if(result[0] != '+') {
+			printf("Server said a bad result: '%s'\n", result);
+		}  else {
+			printf("%s\n", result);
+		}
+		close(res);			
+	} else {
+		
+		printf("Connect failed\n");
+		exit(2);	
+	}	
+	exit(1);
+}
+
+void help() {
+	printf("Bartlby cmd tool:\n");
+	printf("-h             display help\n");
+	printf("-i             host\n");
+	printf("-p             port \n");
+	printf("-s             service-id or server-id (if action == get_services)\n");
+	printf("-m             new service text\n");
+	printf("-e             new service state (0,1,2)\n");
+	printf("-a             action\n");
+	printf("               maybe: get_passive, set_passive, get_services, get_server_id\n");
+	exit(1);	
+}
+void parse_options(int argc, char ** argv) {
 	static struct option longopts[] = {
 		{ "help",	0, NULL, 'h'},
-		{ "sid",	0, NULL, 's'},
-		{ "svclist",	0, NULL, 'L'},
-		{ "plgparms",	0, NULL, 'P'},
-		{ "plgreturn",	0, NULL, 'R'},
-		{ "ssl",	0, NULL, 'S'},
-		{ "message",	0, NULL, 'm'},
-		{ "perfoutput",	1, NULL, 'p'},
-		{ "exitcode",	1, NULL, 'e'},
-		{ "ip",	1, NULL, 'i'},
-		{ "zort",	1, NULL, 'z'},
-		{ "action",	1, NULL, 'a'},
+		{ "host",	0, NULL, 'i'},
+		{ "port", 0, NULL, 'p'},
+		{ "service-id",	0, NULL, 's'},
+		{ "action",	0, NULL, 'a'},
 		
 		{ NULL,		0, NULL, 0}
 	};
 	int c;
+	
+	
+	if(argc < 2) {
+		help();
+			
+	}
 
 	for (;;) {
-		c = getopt_long(argc, argv, "i:z:LPRhs:a:Sm:p:e:a:", longopts, (int *) 0);
+		c = getopt_long(argc, argv, "hi:e:m:s:p:a:S", longopts, (int *) 0);
 		if (c == -1)
 			break;
 		switch (c) {
 		case 'h':  /* --help */
-			dispHelp();
+			help();
 		break;
-		case 'a':
-			if(strcmp(optarg, "get_services") == 0) {
-				passive_action=PORTIER_SVCLIST_PACKET;	
-			}
-			if(strcmp(optarg, "get_passive") == 0) {
-				passive_action=PORTIER_REQUEST_PACKET;	
-			}
-			if(strcmp(optarg, "set_passive") == 0) {
-				passive_action=PORTIER_RESULT_PACKET;	
-			}
-			
-		break;
-		case 'i':
-			passive_host_ip=optarg;
-				
-		break;
-		case 'p':
-			passive_host_port=atoi(optarg);
-				
-		break;
-		case 's':
-			passive_server_or_service_id=atoi(optarg);
-		break;
-		case 'L':
-			passive_action=PORTIER_SVCLIST_PACKET;
-		break;
-		
-		case 'P':
-			passive_action=PORTIER_REQUEST_PACKET;
-		break;
-		
-		case 'R':
-			passive_action=PORTIER_RESULT_PACKET;
-		break;
-		
-		case 'S':
-			use_ssl=1;
+		case 'e':
+			new_passive_state=atoi(optarg);
 		break;
 		case 'm':
-			snprintf(passive_output, 2048, "%s", optarg);
+			new_passive_text=optarg;
+		break;
+		case 'i':
+			
+			passive_host=optarg;
+		break;
+		case 'p':
+			passive_port=atoi(optarg);
+		break;
+		case 's':
+			passive_service=atoi(optarg);
+		break;
+		case 'a':
+			passive_action=optarg;
 		break;
 		
-		case 'z':
-			snprintf(passive_perf_output, 2048, "%s", optarg);
-		break;
-		
-		case 'e':
-			passive_exit_code=atoi(optarg);
-		break;
 		
 		default:
-			dispHelp();
+			help();
 		}
 	}
 	
 	
-	
-}      
-
-void cmd_alarm_handler(int sig){
-
-        printf("TIMEOUT!!!");
-        
-        exit(2);
-        
-       
-       
 }
 
 int main(int argc, char ** argv) {
-	/*
-	static int passive_server_or_service_id;
-static int passive_action;
-static int passive_exit_code;
-static char passive_perf_output[2048];
-static char passive_output[2048];
-
-*/
-
-	int sd;
-	
-#ifdef HAVE_SSL 
-	SSL_METHOD *meth;
-	SSL_CTX *ctx;
-	SSL *ssl;
-#endif     
-	u_int32_t packet_crc32;
-	u_int32_t calculated_crc32;
-	int16_t result;
-	int rc;
-	portier_packet send_packet;
-	portier_packet receive_packet;
-	int bytes_to_send;
-	int bytes_to_recv;
-     
-	signal(SIGALRM,cmd_alarm_handler);
-      /* generate the CRC 32 table */
-	agent_v2_generate_crc32_table();
-	
-	
-	
-	passive_server_or_service_id=0;
-	passive_action=0;
-	passive_exit_code=-1;
-	passive_host_port=-1;
-		
-	
-	sprintf(passive_perf_output, " ");
-	passive_host_ip = NULL;
-	sprintf(passive_output, " ");
-	
+	//printf("portier client\n");
 	parse_options(argc, argv);
-	
-	
-	if(passive_host_ip == NULL || passive_host_port == -1 || passive_server_or_service_id == 0) {
-		printf("host (-i) and port (-p) must be set and server/serivce-id (-s)!! \n");
-		exit(0);	
+	//printf("Working on '%s:%d/%d' action(%s)\n", passive_host, passive_port, passive_service, passive_action);
+	if(passive_action == NULL) {
+		printf("Action unkown!\n");	
+		exit(2);
+	}
+	if(passive_service <=0 || passive_port <= 0 || passive_host == NULL ){
+		printf("Either port, service or host is missing\n");
+		exit(3);	
 	}
 	
-	bzero(&send_packet,sizeof(send_packet));
-	/* fill the packet with semi-random data */
-     	agent_v2_randomize_buffer((char *)&send_packet,sizeof(send_packet));
 	
-	send_packet.service_id = (int32_t)passive_server_or_service_id;
-	sprintf(send_packet.plugin, " ");
-	sprintf(send_packet.cmdline, " ");
-	sprintf(send_packet.perf_handler, " ");
-	sprintf(send_packet.output, " ");
-	
-#ifdef HAVE_SSL
-	SSL_library_init();
-	SSLeay_add_ssl_algorithms();
-	SSL_load_error_strings();
-#endif
-	
-	switch(passive_action) {
-		case PORTIER_SVCLIST_PACKET:
-			send_packet.packet_type=(int16_t)htons(PORTIER_SVCLIST_PACKET);
-			
-		break;
-		
-		case PORTIER_RESULT_PACKET:
-			send_packet.packet_type=(int16_t)htons(PORTIER_RESULT_PACKET);
-			sprintf(send_packet.output, "%s", passive_output);
-			sprintf(send_packet.perf_handler, "%s", passive_perf_output);
-			send_packet.exit_code=(int16_t)passive_exit_code;
-			printf("submitting check result\n");
-		break;
-		
-		case PORTIER_REQUEST_PACKET:
-			send_packet.packet_type=(int16_t)htons(PORTIER_REQUEST_PACKET);
-			
-		break;
-		
-		default:
-			printf("no action set!!\n");
-			exit(1);			
-	}
-	send_packet.crc32_value=(u_int32_t)0L;
-	calculated_crc32=agent_v2_calculate_crc32((char *)&send_packet,sizeof(send_packet));
-	send_packet.crc32_value=(u_int32_t)htonl(calculated_crc32);
-	bytes_to_send=sizeof(send_packet);
-
-
-#ifdef HAVE_SSL
-	if(use_ssl == 1) {
-		
-		meth=SSLv23_client_method();
-       	if((ctx=SSL_CTX_new(meth))==NULL){
-			printf("%s", "AgentV2: Error - could not create SSL context.\n");
-			exit(2);
-		}
-		/* use only TLSv1 protocol */
-		SSL_CTX_set_options(ctx,SSL_OP_NO_SSLv2 | SSL_OP_NO_SSLv3);
-	}
-#endif
-
-	alarm(PORTIER_TIMEOUT);
-	result=portier_my_tcp_connect(passive_host_ip,passive_host_port,&sd);
-	
-	
-	
-#ifdef HAVE_SSL	
-	if(use_ssl == 1) {
-		/* do SSL handshake */
-		if((ssl=SSL_new(ctx))!=NULL){
-			SSL_CTX_set_cipher_list(ctx,"ADH");
-			SSL_set_fd(ssl,sd);
-			
-			rc=SSL_connect(ssl);
-			
-			
-			alarm(PORTIER_TIMEOUT);
-				
-			if(rc !=1){
-				printf("CMD: Error - Could not complete SSL handshake.");
-				exit(2);
-			}
-		} else {
-			printf("CMD: Error - Could not create SSL connection structure."); 
-			SSL_CTX_free(ctx);
-			close(sd);
-			exit(1);
-		}
-	} 
-#endif
-	
-	
-	alarm(PORTIER_TIMEOUT);
-#ifdef HAVE_SSL
-	if(use_ssl == 1) {
-		rc=SSL_write(ssl,&send_packet,bytes_to_send);
+	if(strcmp(passive_action, "get_passive") == 0) {
+		cmd_get_passive();		
+	} else if (strcmp(passive_action, "set_passive") == 0) {
+		cmd_set_passive();
+	} else if(strcmp(passive_action, "get_services") == 0) {
+		cmd_get_services();
+	} else if(strcmp(passive_action, "get_server_id") == 0) {
+		cmd_get_server_id();				
 	} else {
-#endif
-		
-		rc=bartlby_tcp_sendall(sd,(char *)&send_packet,&bytes_to_send);
-		
-			
-#ifdef HAVE_SSL
+		printf("Hmm action is pretty unusefull\n");
 	}
-#endif
-	
-	if(rc<0)
-       	rc=-1;
-
-	if(rc==-1){
-		printf("CMD: Error sending to host");
-		close(sd);
-		exit(2);
-	}
-     	bytes_to_recv=sizeof(receive_packet);
-	
-	alarm(PORTIER_TIMEOUT);
-	
-#ifdef HAVE_SSL
-	if(use_ssl == 1) {
-		rc=SSL_read(ssl,&receive_packet,bytes_to_recv);
-	} else {
-#endif       
-       
-       rc=bartlby_tcp_recvall(sd,(char *)&receive_packet,&bytes_to_recv,PORTIER_TIMEOUT);
-       
-#ifdef HAVE_SSL       
-	}
-#endif
-	alarm(0);
-
-#ifdef HAVE_SSL 		
-	if(use_ssl == 1) {
-		SSL_shutdown(ssl);
-		SSL_free(ssl);
-		SSL_CTX_free(ctx);
-	}
-#endif
-
-	close(sd);
-	
-	if(rc<0){
-		printf("CMD: Error receiving data from agent");
-		exit(2);
-	}else if(rc==0){
-		printf("CMD: Received 0 bytes from agent");
-		exit(2);
-	}else if(bytes_to_recv<sizeof(receive_packet)){
-		printf("CMD: Receive underflow - only %d bytes received (%ld expected).\n",bytes_to_recv,sizeof(receive_packet));
-		exit(2);
-	}
-           
-	packet_crc32=ntohl(receive_packet.crc32_value);
-	receive_packet.crc32_value=0L;
-	calculated_crc32=agent_v2_calculate_crc32((char *)&receive_packet,sizeof(receive_packet));
-	if(packet_crc32!=calculated_crc32){
-		printf("CMD: Response packet had invalid CRC32.");
-		exit(2);
-	}	
 	
 	
-	//ntohs(receive_packet.packet_type)
-	
-	switch(ntohs(receive_packet.packet_type)) {
-		
-		case PORTIER_SVCLIST_PACKET:
-			
-			printf("%s", receive_packet.output);
-			exit(1);
-		break;
-		
-		case PORTIER_RESULT_PACKET:
-			printf("Packet submitted\n");
-			exit(2);
-		break;
-		
-		case PORTIER_REQUEST_PACKET:
-			printf("%s %s", receive_packet.plugin, receive_packet.cmdline);
-			
-			exit(2);
-		break;
-		
-		default:
-			printf("no packet type returned or either wrong packet type (%d)\n", ntohs(receive_packet.packet_type));
-			exit(1);	
-		
-	}
 	
 	return 1;
-		
-}      
-       
-       
-       
-       
-       
-       
-       
-       
-       
-       
-       
-       
-       
-       
-       
-       
-       
-       
-       
-       
-       
-       
-       
-       
-       
-       
-       
-       
-       
-       
-       
-       
-       
-       
-       
-       
-       
-       
-       
-       
-       
-       
-       
-       
-       
-       
-       
-       
-       
-       
-       
-       
-       
-       
-       
-       
-       
-       
-       
-       
-       
-       
-       
-       
-       
-       
-       
-       
-       
-       
-       
-       
-       
-       
-       
+}
