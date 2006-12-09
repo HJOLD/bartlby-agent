@@ -16,6 +16,9 @@ $Source$
 
 
 $Log$
+Revision 1.8  2006/12/09 02:08:24  hjanuschka
+auto commit
+
 Revision 1.7  2006/12/08 22:36:07  hjanuschka
 auto commit
 
@@ -275,7 +278,7 @@ void agent_v2_do_check(int sock, char * cfgfile)  {
 				syslog(LOG_ERR,"Error: Could not complete SSL handshake. %d (%s)\n",SSL_get_error(ssl,rc), ERR_error_string(ERR_get_error(), NULL));
 				return;
 			}
-			while(((rc=SSL_read(ssl,&receive_packet,bytes_to_recv))<=0) && (SSL_get_error(ssl,rc)==SSL_ERROR_WANT_READ));
+			while(((rc=SSL_read(ssl,(char *)&receive_packet,bytes_to_recv))<=0) && (SSL_get_error(ssl,rc)==SSL_ERROR_WANT_READ));
 		} else {
 #endif
 		
@@ -427,7 +430,7 @@ sendit:
 
 #ifdef HAVE_SSL		
 		if(use_ssl == 1) {
-			SSL_write(ssl,&send_packet,bytes_to_send);
+			SSL_write(ssl,(char *)&send_packet,bytes_to_send);
 			if(ssl){
 				SSL_shutdown(ssl);
 				SSL_free(ssl);
