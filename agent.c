@@ -16,6 +16,9 @@ $Source$
 
 
 $Log$
+Revision 1.9  2006/12/25 02:09:16  hjanuschka
+auto commit
+
 Revision 1.8  2006/12/09 02:08:24  hjanuschka
 auto commit
 
@@ -278,6 +281,7 @@ void agent_v2_do_check(int sock, char * cfgfile)  {
 				syslog(LOG_ERR,"Error: Could not complete SSL handshake. %d (%s)\n",SSL_get_error(ssl,rc), ERR_error_string(ERR_get_error(), NULL));
 				return;
 			}
+			
 			while(((rc=SSL_read(ssl,(char *)&receive_packet,bytes_to_recv))<=0) && (SSL_get_error(ssl,rc)==SSL_ERROR_WANT_READ));
 		} else {
 #endif
@@ -367,11 +371,15 @@ void agent_v2_do_check(int sock, char * cfgfile)  {
 		exec_str=malloc(sizeof(char) * (strlen(plugin_path)+strlen(receive_packet.cmdline)+255));
 		sprintf(exec_str, "%s %s", plugin_path, receive_packet.cmdline);
 		
+		
 		fplg=popen(exec_str, "r");
+		
 		if(fplg != NULL) {
 			connection_timed_out=0;
 			alarm(CONN_TIMEOUT);
+			
 			if(fgets(plugin_output, 1024, fplg) != NULL) {
+				
 				if(strncmp(plugin_output, "PERF: ", 6) == 0) {
 					sprintf(send_packet.perf_handler,"%s", plugin_output);
 					if(fgets(plugin_output, 1024, fplg) != NULL) {
@@ -430,7 +438,9 @@ sendit:
 
 #ifdef HAVE_SSL		
 		if(use_ssl == 1) {
+			
 			SSL_write(ssl,(char *)&send_packet,bytes_to_send);
+			
 			if(ssl){
 				SSL_shutdown(ssl);
 				SSL_free(ssl);
