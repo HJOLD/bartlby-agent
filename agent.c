@@ -16,24 +16,103 @@ $Source$
 
 
 $Log$
-Revision 1.9  2006/12/25 02:09:16  hjanuschka
+Revision 1.10  2006/12/27 19:08:50  hjanuschka
+*** empty log message ***
+
+Revision 1.1  2006/11/25 00:54:46  hjanuschka
 auto commit
 
-Revision 1.8  2006/12/09 02:08:24  hjanuschka
-auto commit
+Revision 1.2  2006/08/19 00:06:47  hjanuschka
+agent: loadLimit protocoll error!!
 
-Revision 1.7  2006/12/08 22:36:07  hjanuschka
-auto commit
+Revision 1.1.1.1  2006/07/22 23:27:49  hjanuschka
+initial stand alone agent
 
-Revision 1.6  2006/11/27 21:16:54  hjanuschka
-auto commit
+Revision 1.22  2006/05/12 23:38:02  hjanuschka
+*** empty log message ***
 
-Revision 1.5  2006/11/25 12:31:56  hjanuschka
-auto commit
+Revision 1.21  2006/02/12 00:15:34  hjanuschka
+Makefile.conf added
+Local checks implemented
+minor active check fixes and clean ups for re-use with local checks
 
-Revision 1.4  2006/11/25 01:16:18  hjanuschka
-auto commit
+Revision 1.20  2006/02/10 23:54:46  hjanuschka
+SIRENE mode added
 
+Revision 1.19  2006/02/09 00:14:50  hjanuschka
+datalib: mysql/ catch failed logins
+core: fixed some setuid problems with datalib
+core: zero worker detected and logged
+core: network code re-worked, much faster and cleaner now
+core: encode/decode removed
+php: encode/decode removed
+ui: topology map manager added
+ui: nicer menu (flap)
+ui: server_detail (added)
+startup sh: pre-start check if logfile is writeable
+
+Revision 1.18  2006/01/29 15:53:05  hjanuschka
+server icon
+
+Revision 1.17  2006/01/08 23:20:41  hjanuschka
+install target
+
+Revision 1.16  2006/01/08 16:17:24  hjanuschka
+mysql shema^
+
+Revision 1.15  2005/12/31 00:29:44  hjanuschka
+some more perf fixes during high load test
+
+Revision 1.14  2005/12/25 23:01:16  hjanuschka
+stress testing with RRD
+perf fixes
+
+Revision 1.13  2005/12/24 17:53:41  hjanuschka
+performance interface i.e: for adding RRD tools or something like that
+
+Revision 1.12  2005/10/09 14:44:09  hjanuschka
+agent announces OS and version
+
+Revision 1.11  2005/09/28 21:46:30  hjanuschka
+converted files to unix
+jabber.sh -> disabled core dumps -> jabblibs segfaults
+                                    will try to patch it later
+
+Revision 1.10  2005/09/27 19:39:01  hjanuschka
+trigger timeout
+agent local timeout
+
+Revision 1.9  2005/09/22 02:55:03  hjanuschka
+agent: def timeout 15
+check: strreplace ' "
+
+Revision 1.8  2005/09/18 04:04:52  hjanuschka
+replication interface (currently just a try out)
+one instance can now replicate itself to another using portier as a transport way
+FIXME: need to sort out a binary write() problem
+
+Revision 1.7  2005/09/14 22:01:41  hjanuschka
+debug in data_lib added and removed
+agent: off by two :-) *fG* malloc error producing magic char's  (fixed)
+
+Revision 1.6  2005/09/13 22:11:52  hjanuschka
+ip_list moved to .cfg
+	allowed_ips
+load limit moved to cfg
+	agent_load_limit
+
+portier now also uses ip list to verify ip of connector
+
+portier: passive check without plg args fixed
+
+Revision 1.5  2005/09/02 02:16:57  hjanuschka
+some trap downs ;-)
+
+Revision 1.4  2005/08/30 20:13:17  hjanuschka
+fixed pclose() wrong exit code in agent
+
+Revision 1.3  2005/08/28 16:02:59  hjanuschka
+CVS Header
 
 
 */
@@ -42,212 +121,100 @@ auto commit
 #include <syslog.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/types.h>
+#include <sys/stat.h>
 #include <unistd.h>
 #include <signal.h>
 #include <sys/wait.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <errno.h>
-#include <fcntl.h>
 
-
-#ifdef HAVE_SSL
-#include <openssl/dh.h>
-#include <openssl/ssl.h>
-#include <openssl/err.h>
-#include <openssl/rand.h>
-#include "bartlby_v2_dh.h"
-#endif
-
-
-static int use_ssl=1;
-char * cfg_use_ssl;
+char * getConfigValue(char * key, char * fname);
 
 static int connection_timed_out=0;
 
-int bartlby_tcp_recvall(int s, char *buf, int *len, int timeout);
-int bartlby_tcp_sendall(int s, char *buf, int *len);
-static void agent_conn_timeout(int signo);
-char * getConfigValue(char * key, char * fname);
-unsigned long agent_v2_calculate_crc32(char *buffer, int buffer_size);
-void agent_v2_generate_crc32_table(void);
-void agent_v2_do_check(int sock, char * cfgfile);
-void agent_v2_randomize_buffer(char *buffer,int buffer_size);
-
-unsigned long crc32_table[256];
-typedef struct v2_packet_struct{
-
-	u_int32_t crc32_value;
-	int16_t   exit_code;
-	int16_t   packet_type;
-	char      output[2048];
-	char      cmdline[2048];
-	char      plugin[2048];
-	char 	   perf_handler[1024];
-	
-	 
-} agent_v2_packet;
-
-
-
-#define AGENT_V2_SENT_PACKET 1
-#define AGENT_V2_RETURN_PACKET 2
 #define CONN_TIMEOUT 60
+#define MYOS "Linux"
+#define MYVERSION "0.9"
 
-#ifdef HAVE_SSL
-SSL_METHOD *meth;
-SSL_CTX *ctx;
-#endif
-
-
-int main(int argc, char **argv){
-		
-#ifdef HAVE_SSL
-	DH *dh;
-#endif
-	
-	char seedfile[FILENAME_MAX];
-	int i,c;
-	
-	
-	/* open a connection to the syslog facility */
-	openlog("bartlby_agent-v2-d",LOG_PID,LOG_DAEMON);
-	/* generate the CRC 32 table */
-	agent_v2_generate_crc32_table();
-	
-	cfg_use_ssl=getConfigValue("agent_use_ssl", argv[argc-1]);
-	if(cfg_use_ssl == NULL) {
-		use_ssl = 1;	
-	} else {
-		use_ssl=atoi(cfg_use_ssl);
-		free(cfg_use_ssl);
-	}
-	//syslog(LOG_ERR, "use_ssl: %d cfg_file: %s", use_ssl, argv[argc-1]);
-	
-#ifdef HAVE_SSL
-	if(use_ssl == 1) {
-		SSL_library_init();
-		SSLeay_add_ssl_algorithms();
-		meth=SSLv23_server_method();
-		SSL_load_error_strings();
-		
-		/* use week random seed if necessary */
-		if((RAND_status()==0)){
-			if(RAND_file_name(seedfile,sizeof(seedfile)-1))
-				if(RAND_load_file(seedfile,-1))
-					RAND_write_file(seedfile);
-		
-			if(RAND_status()==0){
-				syslog(LOG_ERR,"Warning: SSL/TLS uses a weak random seed which is highly discouraged");
-				srand(time(NULL));
-				for(i=0;i<500 && RAND_status()==0;i++){
-					for(c=0;c<sizeof(seedfile);c+=sizeof(int)){
-						*((int *)(seedfile+c))=rand();
-					        }
-					RAND_seed(seedfile,sizeof(seedfile));
-					}
-				}
-			}
-		
-		if((ctx=SSL_CTX_new(meth))==NULL){
-			syslog(LOG_ERR,"Error: could not create SSL context.\n");
-			exit(2);
-		}
-		
-		
-		SSL_CTX_set_options(ctx,SSL_OP_NO_SSLv2 | SSL_OP_NO_SSLv3);
-		
-		/* use anonymous DH ciphers */
-		SSL_CTX_set_cipher_list(ctx,"ADH");
-		dh=get_dh512();
-		SSL_CTX_set_tmp_dh(ctx,dh);
-		DH_free(dh);
-	}
-#endif
-	
-	//as we are running under inetd!!
-	close(2);
-	open("/dev/null",O_WRONLY);
-	
-	agent_v2_do_check(0, argv[argc-1]);
-
-#ifdef HAVE_SSL
-	SSL_CTX_free(ctx);
-#endif
-	return 0;
-	
-	
+static void agent_conn_timeout(int signo) {
+ 	connection_timed_out = 1;
 }
-
-void agent_v2_do_check(int sock, char * cfgfile)  {
-	u_int32_t calculated_crc32;
-	agent_v2_packet send_packet;
-	agent_v2_packet receive_packet;
-	int bytes_to_send;
-	int bytes_to_recv;
-	int rc;
-	
-	char plugin_output[1024];
-	int plugin_rtc;
-	FILE * fplg;
-	struct stat plg_stat;
-	char  * plugin_path;
+int main(int argc, char ** argv) {
+	float loadavg[3];
+	FILE * load;
+	char svc_back[1024];
+	char svc_in[1024];
 	char * plugin_dir;
-	char * exec_str;
-	struct sigaction act1, oact1;
-	char * allowed_ip_list;
+	char  * plugin_path;
+	char plg[1024];
+	char plg_args[1024];
 	char * token;
-	struct sockaddr_in name;
-	int namelen = sizeof(name);
+	char * exec_str;
 	int ip_ok=-1;
+	int plugin_rtc;
+	struct stat plg_stat;
+	char plugin_output[1024];
+	struct sockaddr_in name;
+   	int namelen = sizeof(name);
+	char * agent_load_limit;
+	char * allowed_ip_list;
 	
 	
-	u_int32_t packet_crc32;
-
-#ifdef HAVE_SSL
-	SSL *ssl=NULL;
-#endif
+	FILE * fplg;
 	
-	allowed_ip_list=getConfigValue("allowed_ips", cfgfile);
-	if(allowed_ip_list == NULL) {
-        	syslog(LOG_ERR,"No allowed IP");
+	struct sigaction act1, oact1;
+	
+        if(argc < 1) {
+        	printf("Usage: bartlby_agent <CFGFILE>");
+        	
+        		
+        }
+        printf("OS: %s V: %s\n",MYOS, MYVERSION);
+        fflush(stdout);
+        agent_load_limit=getConfigValue("agent_load_limit", argv[argc-1]);
+        allowed_ip_list=getConfigValue("allowed_ips", argv[argc-1]);
+        
+        if(agent_load_limit == NULL) {
+        	agent_load_limit=strdup("10");	
+        }
+        if(allowed_ip_list == NULL) {
+        	printf("2|No Ip Allowed\n\n");
+        	fflush(stdout);	
+		sleep(2);
         	exit(1);
         	
         }
         
-        
         token=strtok(allowed_ip_list,",");
         
         if (getpeername(0,(struct sockaddr *)&name, &namelen) < 0) {
-   		syslog(LOG_ERR, "getpeername failed");
+   		//syslog(LOG_ERR, "getpeername: %m");
    		exit(1);
+   	} else {
+   		//syslog(LOG_INFO, "Connection from %s",	inet_ntoa(name.sin_addr));
    	}
         
         while(token != NULL) {
+        	//printf("CHECKING: %s against %s\n", token, inet_ntoa(name.sin_addr));
         	if(strcmp(token, inet_ntoa(name.sin_addr)) == 0) {
         		ip_ok=0;	
         	}
         	token=strtok(NULL, ",");	
         }
         free(allowed_ip_list);
-        
         if(ip_ok < 0) {
         	//sleep(1);
-        	syslog(LOG_ERR, "ip blocked");
+        	sprintf(svc_back, "2|IP Blocked \n");
+        	
+		printf("%s\n", svc_back);
+		fflush(stdout);	
+		sleep(2);
 		exit(1);
         }
-	
-	
-	plugin_dir=getConfigValue("agent_plugin_dir", cfgfile);
-	if(plugin_dir == NULL) {
-		syslog(LOG_ERR,"plugin dir failed");	
-		exit(1);
-	}
-	
-	act1.sa_handler = agent_conn_timeout;
+        
+        act1.sa_handler = agent_conn_timeout;
 	sigemptyset(&act1.sa_mask);
 	act1.sa_flags=0;
 	#ifdef SA_INTERRUPT
@@ -255,220 +222,150 @@ void agent_v2_do_check(int sock, char * cfgfile)  {
 	#endif
 	if(sigaction(SIGALRM, &act1, &oact1) < 0) {
 		
-		syslog(LOG_ERR,"alarm setup error");
+		printf("2|ALARM SETUP ERROR\n\n");
+		fflush(stdout);	
+		sleep(2);
 		exit(1);
+				
+		return -1;
+	
 		
 	}
 	
-	
-	
-	
-//	signal(SIGALRM,agent_v2_alarm_handler);
-	bytes_to_recv=sizeof(receive_packet);
-	
-#ifdef HAVE_SSL
-		if(use_ssl == 1) {
-			if((ssl=SSL_new(ctx))==NULL){
-				syslog(LOG_ERR,"SSL init error");	
-				return;
-			}
-	       	
-			SSL_set_fd(ssl,sock);
-			/* keep attempting the request if needed */
-			while(((rc=SSL_accept(ssl))!=1) && (SSL_get_error(ssl,rc)==SSL_ERROR_WANT_READ));
-              	
-			if(rc!=1){
-				syslog(LOG_ERR,"Error: Could not complete SSL handshake. %d (%s)\n",SSL_get_error(ssl,rc), ERR_error_string(ERR_get_error(), NULL));
-				return;
-			}
-			
-			while(((rc=SSL_read(ssl,(char *)&receive_packet,bytes_to_recv))<=0) && (SSL_get_error(ssl,rc)==SSL_ERROR_WANT_READ));
-		} else {
-#endif
-		
-			rc=bartlby_tcp_recvall(sock,(char *)&receive_packet,&bytes_to_recv,CONN_TIMEOUT);
-		
-#ifdef HAVE_SSL
-		}
-#endif
-		/* recv() error or client disconnect */
-		if(rc<=0){
-			/* log error to syslog facility */
-			syslog(LOG_ERR,"Could not read request from client bye bye ...");
-#ifdef HAVE_SSL			
-			if(use_ssl == 1) {
-				if(ssl){
-					SSL_shutdown(ssl);
-					SSL_free(ssl);
-				}
-			}
-#endif
-			return;
-			
-		}
-		if(bytes_to_recv!=sizeof(receive_packet)){
-
-	
-			/* log error to syslog facility */
-			syslog(LOG_ERR,"Data packet from client was too short, bye bye ...");
-			
-#ifdef HAVE_SSL			
-			if(use_ssl == 1) {
-				if(ssl){
-					SSL_shutdown(ssl);
-					SSL_free(ssl);
-				}
-			}
-#endif
-			
-			return;		
-			
-		}
-		packet_crc32=ntohl(receive_packet.crc32_value);
-		receive_packet.crc32_value=0L;
-		calculated_crc32=agent_v2_calculate_crc32((char *)&receive_packet,sizeof(receive_packet));
-		if(packet_crc32!=calculated_crc32){
-			syslog(LOG_ERR,"Error: Request packet had invalid CRC32.");
-			return;
-		}
-		if(ntohs(receive_packet.packet_type)!=AGENT_V2_SENT_PACKET){
-			syslog(LOG_ERR,"Error: WRONG packet type.");
-			return;
-		}
-		
-		receive_packet.cmdline[2048-1]='\0';
-		receive_packet.plugin[2048-1]='\0';
-		receive_packet.perf_handler[1024-1]='\0';
-		receive_packet.output[2048-1]='\0';
-		
-		if(!strcmp(receive_packet.plugin,"")){
-			syslog(LOG_ERR,"Error: no plugin supplied");
-			return;	
-		}
-		
-		//syslog(LOG_ERR,"Host is asking for command '%s - %s' to be run...",receive_packet.plugin, receive_packet.cmdline);
-		
-		/* clear the response packet buffer */
-		bzero(&send_packet,sizeof(send_packet));
-	
-		/* fill the packet with semi-random data */
-		agent_v2_randomize_buffer((char *)&send_packet,sizeof(send_packet));
-				
-		//Empty optional fields ;)
-		sprintf(send_packet.perf_handler, " ");
-		
-		
-		plugin_path=malloc(sizeof(char) * (strlen(plugin_dir)+strlen(receive_packet.plugin)+255));
-		sprintf(plugin_path, "%s/%s", plugin_dir, receive_packet.plugin);
-		
-		if(stat(plugin_path,&plg_stat) < 0) {
-			sprintf(send_packet.output, "plugin does not exist");
-			send_packet.exit_code=(int16_t)2;
-			goto sendit;
-			
-		}
-		
-		exec_str=malloc(sizeof(char) * (strlen(plugin_path)+strlen(receive_packet.cmdline)+255));
-		sprintf(exec_str, "%s %s", plugin_path, receive_packet.cmdline);
-		
-		
-		fplg=popen(exec_str, "r");
-		
-		if(fplg != NULL) {
-			connection_timed_out=0;
-			alarm(CONN_TIMEOUT);
-			
-			if(fgets(plugin_output, 1024, fplg) != NULL) {
-				
-				if(strncmp(plugin_output, "PERF: ", 6) == 0) {
-					sprintf(send_packet.perf_handler,"%s", plugin_output);
-					if(fgets(plugin_output, 1024, fplg) != NULL) {
-						plugin_rtc=pclose(fplg);
-						plugin_output[strlen(plugin_output)-1]='\0';
-						
-						send_packet.exit_code=(int16_t)WEXITSTATUS(plugin_rtc);
-						sprintf(send_packet.output, "%s", plugin_output);
-						goto sendit;
-												
-					} else {
-						plugin_rtc=pclose(fplg);
-						send_packet.exit_code=(int16_t)WEXITSTATUS(plugin_rtc);
-						sprintf(send_packet.output, "not output (perf)");
-							
-					}
-					
-				} else {
-					plugin_rtc=pclose(fplg);
-					send_packet.exit_code=(int16_t)WEXITSTATUS(plugin_rtc);
-					sprintf(send_packet.output, "%s", plugin_output);	
-				}	
-			} else {
-				plugin_rtc=pclose(fplg);
-				send_packet.exit_code=(int16_t)WEXITSTATUS(plugin_rtc);
-				sprintf(send_packet.output, "not output (normal)");	
-			}
-		} else {
-			sprintf(send_packet.output, "plugin open failed");
-			send_packet.exit_code=(int16_t)2;	
-			goto sendit;
-		}
-		if(connection_timed_out == 1) {
-			sprintf(send_packet.output, "plugin timed out");
-			send_packet.exit_code=(int16_t)2;		
-		}
+    	sprintf(svc_back, "1|ouuutsch");
+        
+        plugin_dir=getConfigValue("agent_plugin_dir", argv[argc-1]);
+        if(plugin_dir == NULL) {
+        	printf("plugin dir failed\n");	
+        	exit(1);
+        }
+        
+        
+        
+        load=fopen("/proc/loadavg", "r");
+        fscanf(load, "%f %f %f", &loadavg[0], &loadavg[1], &loadavg[2]);
+        fclose(load);
+        
+        if(loadavg[0] < atof(agent_load_limit)) {
+		free(agent_load_limit);
 		connection_timed_out=0;
+		alarm(CONN_TIMEOUT);
+		//ipmlg]ajgai]Amoowlkecvg~"/j"nmacnjmqv~
+		if(read(fileno(stdin), svc_in, 1024) < 0) {
+			printf("2|read BAD!\n\n");
+			fflush(stdout);	
+			sleep(2);
+			exit(1);
+		}
 		alarm(0);
 		
-		
-		
-		
-sendit:		
-		
-		
-		/* initialize response packet data */
-		send_packet.packet_type=(int16_t)htons(AGENT_V2_RETURN_PACKET);
-		/* calculate the crc 32 value of the packet */
-		send_packet.crc32_value=(u_int32_t)0L;
-		calculated_crc32=agent_v2_calculate_crc32((char *)&send_packet,sizeof(send_packet));
-		send_packet.crc32_value=(u_int32_t)htonl(calculated_crc32);
-		
-		
-		
-		bytes_to_send=sizeof(send_packet);
-
-#ifdef HAVE_SSL		
-		if(use_ssl == 1) {
-			
-			SSL_write(ssl,(char *)&send_packet,bytes_to_send);
-			
-			if(ssl){
-				SSL_shutdown(ssl);
-				SSL_free(ssl);
-			}
-		} else {
-#endif
-			bartlby_tcp_sendall(sock,(char *)&send_packet,&bytes_to_send);
-			
-#ifdef HAVE_SSL
+		if(connection_timed_out == 1) {
+			printf("2|conn Timed out!!!\n\n");
+			fflush(stdout);	
+			sleep(2);
+			exit(1);	
 		}
-#endif
+		
+		svc_in[strlen(svc_in)-1]='\0';
+		
+		token=strtok(svc_in, "|");
+		if(token == NULL) {
+			sprintf(svc_back,"1|Protocol Error (No plugin specified");	
+		} else {
+			sprintf(plg, "%s", token);
+			//syslog(LOG_ERR, "bartlby_agent: %s",plg);
+			plugin_path=malloc(sizeof(char) * (strlen(plugin_dir)+strlen(plg)+255));
+			sprintf(plugin_path, "%s/%s", plugin_dir, plg);
+			if(stat(plugin_path,&plg_stat) < 0) {
+				sprintf(svc_back, "1|Plugin does not exist (%s)", plugin_path);	
+			} else {
+				token=strtok(NULL, "|");
+				if(token == NULL) {
+					sprintf(plg_args, " ");	
+				} else {
+					sprintf(plg_args, "%s", token);
+				}
+				exec_str=malloc(sizeof(char) * (strlen(plugin_path)+strlen(plg_args)+255));
+				sprintf(exec_str, "%s %s", plugin_path, plg_args);
+				//printf("E_STR: P: '%s' A: '%s' F: '%s'\n", plugin_path, plg_args, exec_str);
+				
+				fplg=popen(exec_str, "r");
+				if(fplg != NULL) {
+					connection_timed_out=0;
+					alarm(CONN_TIMEOUT);
+					if(fgets(plugin_output, 1024, fplg) != NULL) {
+						if(strncmp(plugin_output, "PERF: ", 6) == 0) {
+							
+							printf("%s\n",plugin_output);
+							fflush(stdout);
+							//sleep(1);
+							if(fgets(plugin_output, 1024, fplg) != NULL) {
+								plugin_rtc=pclose(fplg);
+								plugin_output[strlen(plugin_output)-1]='\0';
+								sprintf(svc_back, "%d|%s\n", WEXITSTATUS(plugin_rtc), plugin_output);		
+							} else {
+								plugin_rtc=pclose(fplg);
+								sprintf(svc_back, "%d|No Output(Perf) - %s", WEXITSTATUS(plugin_rtc), exec_str);	
+							
+							}
+							
+						} else {
+							plugin_rtc=pclose(fplg);
+							plugin_output[strlen(plugin_output)-1]='\0';
+							sprintf(svc_back, "%d|%s\n", WEXITSTATUS(plugin_rtc), plugin_output);		
+						}
+						
+						
+					} else {
+						plugin_rtc=pclose(fplg);
+						sprintf(svc_back, "%d|No Output - %s", WEXITSTATUS(plugin_rtc), exec_str);	
+						
+						
+					}
+					if(connection_timed_out == 1) {
+						sprintf(svc_back, "1|Plugin timedout - %s", exec_str);
+					}
+					connection_timed_out=0;
+					alarm(0);
+					
+					
+				} else {
+					sprintf(svc_back, "1|Plugin open failed");	
+				}
+
+				free(exec_str);
+				
+			}
+			
+			
+			free(plugin_path);
+			
+			
+		}
 		
 		
+		
+		
+		        	
+        } else { 
+        	
+        	free(agent_load_limit);
+        	
+        	sprintf(svc_back, "1|LoadLimit reached %.02f skipping Check!| \n", loadavg[0]);
+		printf("%s\n", svc_back);
+		fflush(stdout);	
+		sleep(2);
+		exit(1);
+        	
+        }
+        fflush(stdout);
+       
+	//printf("SVC_BACK: %s\n", svc_back);
+	//syslog(LOG_ERR, "bartlby_agent: %s",svc_back);
 	
-		
-		
+	printf("%s\n", svc_back);
+	fflush(stdout);
+	
+	//printf("\n %s \n", svc_back);
+	return 1;
 }
-
-
-
-
-    
-        
-static void agent_conn_timeout(int signo) {
- 	connection_timed_out = 1;
-}
-
-
-
-
-
