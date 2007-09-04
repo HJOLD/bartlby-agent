@@ -33,7 +33,14 @@ then
 	then
 		echo "bartlbya                stream  tcp     nowait.500      bartlby  ${BARTLBY_HOME}/bartlby_agent ${BARTLBY_HOME}/bartlby.cfg" >> /etc/inetd.conf
 		echo "DONE ... restarting inetd";
-		/etc/init.d/inetd restart
+		if [ -f /etc/init.d/openbsd-inetd ];
+		then
+			echo "detected openbsd-inetd (debian 4.0?)";
+			echo "....restarting openbsd-inetd"
+			/etc/init.d/openbsd-inetd restart
+		else
+			/etc/init.d/inetd restart
+		fi;
 	else
 		echo "Already existing";
 	fi;
