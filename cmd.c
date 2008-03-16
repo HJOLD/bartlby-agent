@@ -16,6 +16,9 @@ $Source$
 
 
 $Log$
+Revision 1.5  2008/03/16 21:06:29  hjanuschka
+auto commit
+
 Revision 1.4  2006/12/09 12:06:04  hjanuschka
 auto commit
 
@@ -89,7 +92,7 @@ char * passive_host=NULL;
 int passive_service=-1;
 int passive_port=-1;
 
-static int connection_timed_out=0;
+static sig_atomic_t connection_timed_out=0;
 
 
 static void bartlby_conn_timeout(int signo) {
