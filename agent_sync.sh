@@ -80,6 +80,7 @@ function bartlby_get_agent_bin {
 	
 	if [ "$my_md" != "$3" ];
 	then
+		killall -9 bartlby_agent
 		echo "DL1 $3 / $my_md $BARTLBY_HOME/bartlby_agent : $url";
 		bartlby_dl_agent $1 $BARTLBY_HOME/bartlby_agent;
 	else
