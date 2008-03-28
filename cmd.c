@@ -16,6 +16,9 @@ $Source$
 
 
 $Log$
+Revision 1.7  2008/03/28 11:01:15  hjanuschka
+compile warnings without ssl fixed, and correct exit code in get_passive
+
 Revision 1.6  2008/03/28 05:08:45  hjanuschka
 agent:	 compile warnings fixed
 passive: run.sh fixes (http://wiki.bartlby.org/dokuwiki/doku.php?id=start#passiveagentsetup)
@@ -211,7 +214,7 @@ void cmd_get_passive() {
 					printf("%s %s", token, token_t);	
 					printf("\n");
 					close(res);
-					exit(1);
+					exit(0);
 					
 				} else {
 					close(res);

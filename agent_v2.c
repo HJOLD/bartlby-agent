@@ -16,6 +16,9 @@ $Source$
 
 
 $Log$
+Revision 1.2  2008/03/28 11:01:14  hjanuschka
+compile warnings without ssl fixed, and correct exit code in get_passive
+
 Revision 1.1  2006/12/27 19:08:50  hjanuschka
 *** empty log message ***
 
@@ -110,10 +113,11 @@ int main(int argc, char **argv){
 		
 #ifdef HAVE_SSL
 	DH *dh;
+	int i, c;
+	char seedfile[FILENAME_MAX];
 #endif
 	
-	char seedfile[FILENAME_MAX];
-	int i,c;
+
 	
 	
 	/* open a connection to the syslog facility */
@@ -204,7 +208,7 @@ void agent_v2_do_check(int sock, char * cfgfile)  {
 	char * allowed_ip_list;
 	char * token;
 	struct sockaddr_in name;
-	int namelen = sizeof(name);
+	unsigned int namelen = sizeof(name);
 	int ip_ok=-1;
 	
 	
