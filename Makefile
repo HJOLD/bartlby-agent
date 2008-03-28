@@ -32,7 +32,9 @@ install:
 	$(CPPVA) bartlby.cfg $(BARTLBY_HOME)/
 	$(CPPVA) agent_sync.cfg $(BARTLBY_HOME)/
 	$(CPPVA) agent_sync.sh $(BARTLBY_HOME)/
-
+	
+	$(CPPVA) passive_run.sample $(BARTLBY_HOME)/
+	$(CPPVA) HOWTO.passive $(BARTLBY_HOME)/
 	
 
 

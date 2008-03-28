@@ -16,6 +16,11 @@ $Source$
 
 
 $Log$
+Revision 1.11  2008/03/28 05:08:45  hjanuschka
+agent:	 compile warnings fixed
+passive: run.sh fixes (http://wiki.bartlby.org/dokuwiki/doku.php?id=start#passiveagentsetup)
+passive: HOWTO.passive and passive_run.sample added
+
 Revision 1.10  2006/12/27 19:08:50  hjanuschka
 *** empty log message ***
 
@@ -157,7 +162,7 @@ int main(int argc, char ** argv) {
 	struct stat plg_stat;
 	char plugin_output[1024];
 	struct sockaddr_in name;
-   	int namelen = sizeof(name);
+   	unsigned int namelen = sizeof(name);
 	char * agent_load_limit;
 	char * allowed_ip_list;
 	

@@ -16,6 +16,11 @@ $Source$
 
 
 $Log$
+Revision 1.6  2008/03/28 05:08:45  hjanuschka
+agent:	 compile warnings fixed
+passive: run.sh fixes (http://wiki.bartlby.org/dokuwiki/doku.php?id=start#passiveagentsetup)
+passive: HOWTO.passive and passive_run.sample added
+
 Revision 1.5  2008/03/16 21:06:29  hjanuschka
 auto commit
 
@@ -166,7 +171,7 @@ void cmd_get_passive() {
 		connection_timed_out=0;
 		alarm(5);
 		if(read(res, verstr, 1024) < 0) {
-			printf("BAD!\n");
+			printf("Read error\n");
 			exit(1);
 		}
 		if(verstr[0] != '+') {
@@ -480,5 +485,5 @@ int main(int argc, char ** argv) {
 	
 	
 	
-	return 1;
+	return 0;
 }
